@@ -1,0 +1,275 @@
+Типы возвращаемых значений асинхронных операций (C#)
+Статья
+11.04.2023
+Участники: 3
+В этой статье
+Тип возвращаемого значения Task
+Тип возвращаемого значения задачи<TResult>
+Тип возвращаемого значения Void
+Обобщенные асинхронные типы возвращаемых значений и ValueTask<TResult>
+Показать еще 2
+Асинхронные методы могут иметь следующие типы возвращаемых значений:
+
+Task для асинхронного метода, который выполняет операцию, но не возвращает значение.
+Task<TResult> для асинхронного метода, возвращающего значение.
+void для обработчика событий.
+Любой тип, имеющий доступный GetAwaiter метод. Объект, возвращаемый методом GetAwaiter, должен реализовывать интерфейс System.Runtime.CompilerServices.ICriticalNotifyCompletion.
+IAsyncEnumerable<T>для асинхронного метода, возвращающего асинхронный поток.
+Дополнительные сведения об асинхронных методах см. в разделе Асинхронное программирование с использованием ключевых слов async и await (C#).
+
+Существуют также некоторые другие типы, характерные для рабочих нагрузок Windows.
+
+DispatcherOperation для асинхронных операций, ограниченных Windows.
+IAsyncAction для асинхронных действий в UWP, которые не возвращают значение.
+IAsyncActionWithProgress<TProgress> для асинхронных действий в UWP, которые сообщают о ходе выполнения, но не возвращают значение.
+IAsyncOperation<TResult> для асинхронных операций в UWP, возвращающих значение.
+IAsyncOperationWithProgress<TResult,TProgress> для асинхронных операций в UWP, которые сообщают о ходе выполнения и возвращают значение.
+Тип возвращаемого значения Task
+Асинхронные методы, не содержащие инструкцию return или содержащие инструкцию return, которая не возвращает операнд, обычно имеют тип возвращаемого значения Task. При синхронном выполнении такие методы возвращают void. Если для асинхронного метода вы используете тип возвращаемого значения Task, вызывающий метод может использовать оператор await для приостановки выполнения вызывающего объекта до завершения вызванного асинхронного метода.
+
+В следующем примере метод WaitAndApologizeAsync не содержит инструкцию return, в связи с чем он возвращает объект Task. Возврат Task позволяет реализовать ожидание WaitAndApologizeAsync. Тип Task не имеет возвращаемого значения и, соответственно, не содержит свойство Result.
+
+C#
+
+Копировать
+public static async Task DisplayCurrentInfoAsync()
+{
+    await WaitAndApologizeAsync();
+
+    Console.WriteLine($"Today is {DateTime.Now:D}");
+    Console.WriteLine($"The current time is {DateTime.Now.TimeOfDay:t}");
+    Console.WriteLine("The current temperature is 76 degrees.");
+}
+
+static async Task WaitAndApologizeAsync()
+{
+    await Task.Delay(2000);
+
+    Console.WriteLine("Sorry for the delay...\n");
+}
+// Example output:
+//    Sorry for the delay...
+//
+// Today is Monday, August 17, 2020
+// The current time is 12:59:24.2183304
+// The current temperature is 76 degrees.
+WaitAndApologizeAsync вызывается и ожидается с помощью инструкции await (вместо выражения await), похожей на инструкцию вызова для синхронного метода, возвращающего значение void. Применение оператора await в этом случае не возвращает значение. Если правый операнд await имеет значение Task<TResult>, await выражение возвращает результат для T. Если же правый операнд await имеет значение Task, await и его операнд являются оператором.
+
+Можно отделить вызов WaitAndApologizeAsync от применения инструкции await, как показывает следующий код. Однако следует помнить, что Task не содержит свойство Result, и при применении оператора await к Task никакое значение не создается.
+
+В следующем коде вызов метода WaitAndApologizeAsync отделяется от ожидания задачи, которую возвращает этот метод.
+
+C#
+
+Копировать
+Task waitAndApologizeTask = WaitAndApologizeAsync();
+
+string output =
+    $"Today is {DateTime.Now:D}\n" +
+    $"The current time is {DateTime.Now.TimeOfDay:t}\n" +
+    "The current temperature is 76 degrees.\n";
+
+await waitAndApologizeTask;
+Console.WriteLine(output);
+Тип возвращаемого значения задачи<TResult>
+Тип возвращаемого значения Task<TResult> используется для асинхронного метода, содержащего инструкцию return с операндом типа TResult.
+
+В следующем примере метод GetLeisureHoursAsync содержит инструкцию return, которая возвращает целое число. В объявлении метода должен указываться тип возвращаемого значения Task<int>. Асинхронный метод FromResult представляет собой заполнитель для операции, которая возвращает DayOfWeek.
+
+C#
+
+Копировать
+public static async Task ShowTodaysInfoAsync()
+{
+    string message =
+        $"Today is {DateTime.Today:D}\n" +
+        "Today's hours of leisure: " +
+        $"{await GetLeisureHoursAsync()}";
+
+    Console.WriteLine(message);
+}
+
+static async Task<int> GetLeisureHoursAsync()
+{
+    DayOfWeek today = await Task.FromResult(DateTime.Now.DayOfWeek);
+
+    int leisureHours =
+        today is DayOfWeek.Saturday || today is DayOfWeek.Sunday
+        ? 16 : 5;
+
+    return leisureHours;
+}
+// Example output:
+//    Today is Wednesday, May 24, 2017
+//    Today's hours of leisure: 5
+При вызове GetLeisureHoursAsync из выражения await в методе ShowTodaysInfo это выражение await извлекает целочисленное значение (значение leisureHours), хранящееся в задаче, которая возвращается методом GetLeisureHours. Дополнительные сведения о выражениях await см. в разделе await.
+
+Чтобы лучше понять, как await получает результат из Task<T>, отделите вызов метода GetLeisureHoursAsync от применения await, как показано в следующем коде. Вызов метода GetLeisureHoursAsync, который не ожидается немедленно, возвращает Task<int>, как и следовало ожидать из объявления метода. В данном примере эта задача назначается переменной getLeisureHoursTask. Поскольку getLeisureHoursTask является Task<TResult>, она содержит свойство Result типа TResult. В этом примере TResult представляет собой целочисленный тип. Если выражение await применяется к getLeisureHoursTask, выражение await вычисляется как содержимое свойства Result объекта getLeisureHoursTask. Это значение присваивается переменной ret.
+
+ Важно!
+
+Свойство Result является блокирующим свойством. При попытке доступа к нему до завершения его задачи поток, который в текущий момент активен, блокируется до того момента, пока задача не будет завершена, а ее значение не станет доступным. В большинстве случаев следует получать доступ к этому значению с помощью await вместо прямого обращения к свойству.
+
+В предыдущем примере извлекалось значение свойства Result для блокировки основного потока. Это позволяет методу Main вывести message в окно консоли до того, как завершится работа приложения.
+
+C#
+
+Копировать
+var getLeisureHoursTask = GetLeisureHoursAsync();
+
+string message =
+    $"Today is {DateTime.Today:D}\n" +
+    "Today's hours of leisure: " +
+    $"{await getLeisureHoursTask}";
+
+Console.WriteLine(message);
+Тип возвращаемого значения Void
+Тип возвращаемого значения void используется в асинхронных обработчиках событий, для которых требуется тип возвращаемого значения void. Поскольку методы, не являющиеся обработчиками событий, не возвращают значения, вместо этого необходимо вернуть Task. Это вызвано тем, что для асинхронных методов, возвращающих значение void, ожидание невозможно. Любой вызывающий объект такого метода должен иметь возможность завершить свою работу, не дожидаясь завершения вызванного асинхронного метода. Вызывающий объект не должен зависеть ни от каких значений и исключений, создаваемых асинхронным методом.
+
+Вызывающий объект асинхронного метода, возвращающего void, не может перехватывать создаваемые методом исключения. Такие необработанные исключения, скорее всего, приведут к сбою приложения. Если метод, возвращающий Task или Task<TResult>, создает исключение, оно хранится в возвращенной задаче. Исключение повторно вызывается при ожидании задачи. Убедитесь, что любой асинхронный метод, который может вызвать исключение, имеет тип возвращаемого значения Task или Task<TResult> и что вызовы метода являются ожидаемыми.
+
+В следующем примере показано поведение асинхронного обработчика событий. В примере кода асинхронный обработчик событий должен сообщить основному потоку о завершении своей работы. Основной поток может ожидать завершения работы асинхронного обработчика событий перед выходом из программы.
+
+C#
+
+Копировать
+public class NaiveButton
+{
+    public event EventHandler? Clicked;
+
+    public void Click()
+    {
+        Console.WriteLine("Somebody has clicked a button. Let's raise the event...");
+        Clicked?.Invoke(this, EventArgs.Empty);
+        Console.WriteLine("All listeners are notified.");
+    }
+}
+
+public class AsyncVoidExample
+{
+    static readonly TaskCompletionSource<bool> s_tcs = new TaskCompletionSource<bool>();
+
+    public static async Task MultipleEventHandlersAsync()
+    {
+        Task<bool> secondHandlerFinished = s_tcs.Task;
+
+        var button = new NaiveButton();
+
+        button.Clicked += OnButtonClicked1;
+        button.Clicked += OnButtonClicked2Async;
+        button.Clicked += OnButtonClicked3;
+
+        Console.WriteLine("Before button.Click() is called...");
+        button.Click();
+        Console.WriteLine("After button.Click() is called...");
+
+        await secondHandlerFinished;
+    }
+
+    private static void OnButtonClicked1(object? sender, EventArgs e)
+    {
+        Console.WriteLine("   Handler 1 is starting...");
+        Task.Delay(100).Wait();
+        Console.WriteLine("   Handler 1 is done.");
+    }
+
+    private static async void OnButtonClicked2Async(object? sender, EventArgs e)
+    {
+        Console.WriteLine("   Handler 2 is starting...");
+        Task.Delay(100).Wait();
+        Console.WriteLine("   Handler 2 is about to go async...");
+        await Task.Delay(500);
+        Console.WriteLine("   Handler 2 is done.");
+        s_tcs.SetResult(true);
+    }
+
+    private static void OnButtonClicked3(object? sender, EventArgs e)
+    {
+        Console.WriteLine("   Handler 3 is starting...");
+        Task.Delay(100).Wait();
+        Console.WriteLine("   Handler 3 is done.");
+    }
+}
+// Example output:
+//
+// Before button.Click() is called...
+// Somebody has clicked a button. Let's raise the event...
+//    Handler 1 is starting...
+//    Handler 1 is done.
+//    Handler 2 is starting...
+//    Handler 2 is about to go async...
+//    Handler 3 is starting...
+//    Handler 3 is done.
+// All listeners are notified.
+// After button.Click() is called...
+//    Handler 2 is done.
+Обобщенные асинхронные типы возвращаемых значений и ValueTask<TResult>
+Асинхронный метод может возвращать любой тип, имеющий доступный GetAwaiter метод, который возвращает экземпляр типа awaiter. Также тип, возвращаемый методом GetAwaiter, должен иметь атрибут System.Runtime.CompilerServices.AsyncMethodBuilderAttribute. Дополнительные сведения см. в статье о атрибутах, прочитанных компилятором или спецификацией C# для шаблона построителя типов задач.
+
+Эта функция является дополнением к выражениям с поддержкой await с описанием требований для операнда await. Обобщенные асинхронные типы возвращаемых значений позволяют компилятору создавать методы async, возвращающие различные типы. Благодаря использованию обобщенных асинхронных типов возвращаемых значений производительность в библиотеках .NET повысилась. Поскольку Task и Task<TResult> являются ссылочными типами, выделение памяти во влияющих на производительность сегментах (особенно при выделении памяти в ограниченных циклах) может серьезно снизить производительность. Поддержка обобщенных типов возвращаемых значений позволяет возвращать небольшой тип значения вместо ссылочного типа, благодаря чему удается предотвратить избыточное выделение памяти.
+
+На платформе .NET представлена структура System.Threading.Tasks.ValueTask<TResult>, которая является упрощенной реализацией обобщенного значения, возвращающего задачу. В следующем примере структура ValueTask<TResult> используется для извлечения значений двух игральных костей.
+
+C#
+
+Копировать
+class Program
+{
+    static readonly Random s_rnd = new Random();
+
+    static async Task Main() =>
+        Console.WriteLine($"You rolled {await GetDiceRollAsync()}");
+
+    static async ValueTask<int> GetDiceRollAsync()
+    {
+        Console.WriteLine("Shaking dice...");
+
+        int roll1 = await RollAsync();
+        int roll2 = await RollAsync();
+
+        return roll1 + roll2;
+    }
+
+    static async ValueTask<int> RollAsync()
+    {
+        await Task.Delay(500);
+
+        int diceRoll = s_rnd.Next(1, 7);
+        return diceRoll;
+    }
+}
+// Example output:
+//    Shaking dice...
+//    You rolled 8
+Создание обобщенного асинхронного типа возвращаемого значения — сложный сценарий, который используется в специализированных средах. Вместо этого можно применять типы Task, Task<T> и ValueTask<T>, которые используются в большинстве сценариев для асинхронного кода.
+
+В C# 10 и более поздних версиях к асинхронному методу можно применить атрибут AsyncMethodBuilder (вместо объявления асинхронного типа возвращаемого значения), чтобы переопределить построитель для этого типа. Обычно этот атрибут применяется для использования другого построителя, предоставленного в среде выполнения .NET.
+
+Асинхронные потоки с IAsyncEnumerable<T>
+Асинхронный метод может возвращать асинхронный поток, представленный .IAsyncEnumerable<T> Асинхронный поток позволяет перечислять элементы, считываемые из потока, при создании блоков элементов с помощью повторяющихся асинхронных вызовов. В следующем примере показан асинхронный метод, создающий асинхронный поток.
+
+C#
+
+Копировать
+static async IAsyncEnumerable<string> ReadWordsFromStreamAsync()
+{
+    string data =
+        @"This is a line of text.
+              Here is the second line of text.
+              And there is one more for good measure.
+              Wait, that was the penultimate line.";
+
+    using var readStream = new StringReader(data);
+
+    string? line = await readStream.ReadLineAsync();
+    while (line != null)
+    {
+        foreach (string word in line.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            yield return word;
+        }
+
+        line = await readStream.ReadLineAsync();
+    }
+}
+В предыдущем примере показано асинхронное считывание строк. После считывания каждой строки код перечисляет каждое слово в строке. Вызывающие объекты будут перечислять каждое слово с помощью оператора await foreach. Метод ожидает, когда необходимо асинхронно считать следующую строку из исходной строки.

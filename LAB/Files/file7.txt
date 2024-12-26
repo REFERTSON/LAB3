@@ -1,0 +1,293 @@
+Отмена списка задач
+Статья
+28.03.2023
+Участники: 3
+В этой статье
+Необходимые компоненты
+Добавьте поля
+Обновление точки входа приложения
+Создание метода асинхронного суммирования размеров страниц
+Показать еще 4
+Вы можете отменить асинхронное консольное приложение, если не хотите дожидаться его завершения. Выполнив код в приведенных ниже примерах, вы сможете добавить в приложение возможность отмены, загружающую содержимое списка веб-сайтов. Можно отменить множество задач, связав экземпляр CancellationTokenSource с каждой задачей. В этом случае нажатие клавиши ВВОД отменяет сразу все незавершенные задачи.
+
+Темы, рассматриваемые в этом руководстве:
+
+Создание консольного приложения .NET
+Создание асинхронного приложения, поддерживающего отмену
+Демонстрация отмены сигнализации
+Необходимые компоненты
+Для работы с данным учебником требуется следующее:
+
+Пакет SDK для .NET 5 или более поздней версии
+Интегрированная среда разработки (IDE)
+Мы рекомендуем Visual Studio или Visual Studio Code
+Создание примера приложения
+Создайте новое консольное приложение .NET Core. Его можно создать с помощью команды dotnet new console или в Visual Studio. Откройте файл Program.cs в любом редакторе кода.
+
+Замена операторов using
+Замените существующие операторы using следующими объявлениями.
+
+C#
+
+Копировать
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+Добавьте поля
+В определении класса Program добавьте следующие три поля.
+
+C#
+
+Копировать
+static readonly CancellationTokenSource s_cts = new CancellationTokenSource();
+
+static readonly HttpClient s_client = new HttpClient
+{
+    MaxResponseContentBufferSize = 1_000_000
+};
+
+static readonly IEnumerable<string> s_urlList = new string[]
+{
+    "https://learn.microsoft.com",
+    "https://learn.microsoft.com/aspnet/core",
+    "https://learn.microsoft.com/azure",
+    "https://learn.microsoft.com/azure/devops",
+    "https://learn.microsoft.com/dotnet",
+    "https://learn.microsoft.com/dynamics365",
+    "https://learn.microsoft.com/education",
+    "https://learn.microsoft.com/enterprise-mobility-security",
+    "https://learn.microsoft.com/gaming",
+    "https://learn.microsoft.com/graph",
+    "https://learn.microsoft.com/microsoft-365",
+    "https://learn.microsoft.com/office",
+    "https://learn.microsoft.com/powershell",
+    "https://learn.microsoft.com/sql",
+    "https://learn.microsoft.com/surface",
+    "https://learn.microsoft.com/system-center",
+    "https://learn.microsoft.com/visualstudio",
+    "https://learn.microsoft.com/windows",
+    "https://learn.microsoft.com/maui"
+};
+CancellationTokenSource используется для сигнализации запрошенной отмены CancellationToken. HttpClient предоставляет возможность отправлять HTTP-запросы и получать HTTP-ответы. s_urlList содержит все URL-адреса, которые планируется обработать приложением.
+
+Обновление точки входа приложения
+Главной точкой входа в консольное приложение является метод Main. Замените существующий метод следующим кодом.
+
+C#
+
+Копировать
+static async Task Main()
+{
+    Console.WriteLine("Application started.");
+    Console.WriteLine("Press the ENTER key to cancel...\n");
+
+    Task cancelTask = Task.Run(() =>
+    {
+        while (Console.ReadKey().Key != ConsoleKey.Enter)
+        {
+            Console.WriteLine("Press the ENTER key to cancel...");
+        }
+
+        Console.WriteLine("\nENTER key pressed: cancelling downloads.\n");
+        s_cts.Cancel();
+    });
+    
+    Task sumPageSizesTask = SumPageSizesAsync();
+
+    Task finishedTask = await Task.WhenAny(new[] { cancelTask, sumPageSizesTask });
+    if (finishedTask == cancelTask)
+    {
+        // wait for the cancellation to take place:
+        try
+        {
+            await sumPageSizesTask;
+            Console.WriteLine("Download task completed before cancel request was processed.");
+        }
+        catch (TaskCanceledException)
+        {
+            Console.WriteLine("Download task has been cancelled.");
+        }
+    }
+        
+    Console.WriteLine("Application ending.");
+}
+Обновленный метод Main теперь считается асинхронным методом main, который позволяет использовать асинхронную точку входа в исполняемом файле. Он записывает в консоль несколько сообщений с инструкциями, а затем объявляет экземпляр Task с именем cancelTask, который будет считывать нажатия клавиш в консоли. Если нажата клавиша ВВОД, выполняется вызов CancellationTokenSource.Cancel(). Это приведет к отмене сигнала. Затем переменная sumPageSizesTask назначается методом SumPageSizesAsync. Затем обе задачи передаются в Task.WhenAny(Task[]), что будет продолжено после завершения любой из этих задач.
+
+Следующий блок кода гарантирует, что приложение не завершает работу до тех пор, пока отмена не будет обработана. Если первая задача будет cancelTaskзавершена, sumPageSizeTask ожидается. Если он был отменен, когда ожидается, он бросает System.Threading.Tasks.TaskCanceledException. Блок перехватывает это исключение и выводит сообщение.
+
+Создание метода асинхронного суммирования размеров страниц
+Добавьте метод Main под методом SumPageSizesAsync.
+
+C#
+
+Копировать
+static async Task SumPageSizesAsync()
+{
+    var stopwatch = Stopwatch.StartNew();
+
+    int total = 0;
+    foreach (string url in s_urlList)
+    {
+        int contentLength = await ProcessUrlAsync(url, s_client, s_cts.Token);
+        total += contentLength;
+    }
+
+    stopwatch.Stop();
+
+    Console.WriteLine($"\nTotal bytes returned:  {total:#,#}");
+    Console.WriteLine($"Elapsed time:          {stopwatch.Elapsed}\n");
+}
+Метод начинается с создания экземпляра и запуска Stopwatch. Затем он просматривает каждый URL-адрес в s_urlList и вызывает ProcessUrlAsync. При каждой итерации в метод ProcessUrlAsync передается s_cts.Token, а код возвращает Task<TResult>, где TResult является целым числом.
+
+C#
+
+Копировать
+int total = 0;
+foreach (string url in s_urlList)
+{
+    int contentLength = await ProcessUrlAsync(url, s_client, s_cts.Token);
+    total += contentLength;
+}
+Добавление метода обработки
+Добавьте приведенный ниже метод ProcessUrlAsync после метода SumPageSizesAsync.
+
+C#
+
+Копировать
+static async Task<int> ProcessUrlAsync(string url, HttpClient client, CancellationToken token)
+{
+    HttpResponseMessage response = await client.GetAsync(url, token);
+    byte[] content = await response.Content.ReadAsByteArrayAsync(token);
+    Console.WriteLine($"{url,-60} {content.Length,10:#,#}");
+
+    return content.Length;
+}
+Для любого заданного URL-адреса метод будет использовать экземпляр client, предоставленный для получения ответа в качестве byte[]. CancellationToken экземпляр передается в методы HttpClient.GetAsync(String, CancellationToken) и HttpContent.ReadAsByteArrayAsync(). token используется для регистрации запрошенной отмены. Длина возвращается после того, как URL-адрес и длина записываются в консоль.
+
+Пример выходных данных приложения
+Консоль
+
+Копировать
+Application started.
+Press the ENTER key to cancel...
+
+https://learn.microsoft.com                                       37,357
+https://learn.microsoft.com/aspnet/core                           85,589
+https://learn.microsoft.com/azure                                398,939
+https://learn.microsoft.com/azure/devops                          73,663
+https://learn.microsoft.com/dotnet                                67,452
+https://learn.microsoft.com/dynamics365                           48,582
+https://learn.microsoft.com/education                             22,924
+
+ENTER key pressed: cancelling downloads.
+
+Application ending.
+Полный пример
+Приведенный ниже код — это полный текст файла Program.cs для примера.
+
+C#
+
+Копировать
+using System.Diagnostics;
+
+class Program
+{
+    static readonly CancellationTokenSource s_cts = new CancellationTokenSource();
+
+    static readonly HttpClient s_client = new HttpClient
+    {
+        MaxResponseContentBufferSize = 1_000_000
+    };
+
+    static readonly IEnumerable<string> s_urlList = new string[]
+    {
+            "https://learn.microsoft.com",
+            "https://learn.microsoft.com/aspnet/core",
+            "https://learn.microsoft.com/azure",
+            "https://learn.microsoft.com/azure/devops",
+            "https://learn.microsoft.com/dotnet",
+            "https://learn.microsoft.com/dynamics365",
+            "https://learn.microsoft.com/education",
+            "https://learn.microsoft.com/enterprise-mobility-security",
+            "https://learn.microsoft.com/gaming",
+            "https://learn.microsoft.com/graph",
+            "https://learn.microsoft.com/microsoft-365",
+            "https://learn.microsoft.com/office",
+            "https://learn.microsoft.com/powershell",
+            "https://learn.microsoft.com/sql",
+            "https://learn.microsoft.com/surface",
+            "https://learn.microsoft.com/system-center",
+            "https://learn.microsoft.com/visualstudio",
+            "https://learn.microsoft.com/windows",
+            "https://learn.microsoft.com/maui"
+    };
+
+    static async Task Main()
+    {
+        Console.WriteLine("Application started.");
+        Console.WriteLine("Press the ENTER key to cancel...\n");
+
+        Task cancelTask = Task.Run(() =>
+        {
+            while (Console.ReadKey().Key != ConsoleKey.Enter)
+            {
+                Console.WriteLine("Press the ENTER key to cancel...");
+            }
+
+            Console.WriteLine("\nENTER key pressed: cancelling downloads.\n");
+            s_cts.Cancel();
+        });
+
+        Task sumPageSizesTask = SumPageSizesAsync();
+
+        Task finishedTask = await Task.WhenAny(new[] { cancelTask, sumPageSizesTask });
+        if (finishedTask == cancelTask)
+        {
+            // wait for the cancellation to take place:
+            try
+            {
+                await sumPageSizesTask;
+                Console.WriteLine("Download task completed before cancel request was processed.");
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Download task has been cancelled.");
+            }
+        }
+
+        Console.WriteLine("Application ending.");
+    }
+
+    static async Task SumPageSizesAsync()
+    {
+        var stopwatch = Stopwatch.StartNew();
+
+        int total = 0;
+        foreach (string url in s_urlList)
+        {
+            int contentLength = await ProcessUrlAsync(url, s_client, s_cts.Token);
+            total += contentLength;
+        }
+
+        stopwatch.Stop();
+
+        Console.WriteLine($"\nTotal bytes returned:  {total:#,#}");
+        Console.WriteLine($"Elapsed time:          {stopwatch.Elapsed}\n");
+    }
+
+    static async Task<int> ProcessUrlAsync(string url, HttpClient client, CancellationToken token)
+    {
+        HttpResponseMessage response = await client.GetAsync(url, token);
+        byte[] content = await response.Content.ReadAsByteArrayAsync(token);
+        Console.WriteLine($"{url,-60} {content.Length,10:#,#}");
+
+        return content.Length;
+    }
+}
+См. также
+CancellationToken
+CancellationTokenSource
+Асинхронное программирование с использованием ключевых слов Async и Await (C#)

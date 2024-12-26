@@ -1,0 +1,15 @@
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\bin\Debug\net8.0\LAB.exe
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\bin\Debug\net8.0\LAB.deps.json
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\bin\Debug\net8.0\LAB.runtimeconfig.json
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\bin\Debug\net8.0\LAB.dll
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\bin\Debug\net8.0\LAB.pdb
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\obj\Debug\net8.0\LAB.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\obj\Debug\net8.0\LAB.AssemblyInfoInputs.cache
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\obj\Debug\net8.0\LAB.AssemblyInfo.cs
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\obj\Debug\net8.0\LAB.csproj.CoreCompileInputs.cache
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\obj\Debug\net8.0\LAB.dll
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\obj\Debug\net8.0\refint\LAB.dll
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\obj\Debug\net8.0\LAB.pdb
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\obj\Debug\net8.0\LAB.genruntimeconfig.cache
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\obj\Debug\net8.0\ref\LAB.dll
+C:\Users\FREDDBEAR_FAZBEARSON\source\repos\LAB\LAB\bin\Debug\net8.0\Files\file1.txt

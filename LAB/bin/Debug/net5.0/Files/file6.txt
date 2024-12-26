@@ -1,0 +1,205 @@
+Асинхронный доступ к файлам (C#)
+Статья
+08.04.2023
+1 участник
+В этой статье
+Использование соответствующих классов
+Запись текста
+Чтение текста
+Параллельный асинхронный ввод-вывод
+См. также раздел
+Для доступа к файлам можно использовать функцию Async. При использовании функции Async вы можете вызывать асинхронные методы без использования обратных вызовов или разделения вашего кода на множество методов или лямбда-выражений. Для выполнения последовательного кода асинхронно просто вызовите асинхронный метод вместо синхронного метода и добавьте несколько ключевых слов в код.
+
+Можно рассмотреть следующие причины для добавления асинхронности для вызовов для доступа к файлам.
+
+Асинхронность делает приложения пользовательского интерфейса более отзывчивыми, потому что поток пользовательского интерфейса, который запускает операцию, может продолжать выполнять и другую работу. Если поток пользовательского интерфейса должен выполнять код, который занимает много времени (например, более 50 миллисекунд), пользовательский интерфейс можно приостановить до тех пор, пока не будет завершен ввод-вывод, и затем пользовательский интерфейс сможет снова обрабатывать ввод с клавиатуры, мыши и другие события.
+Асинхронность улучшает масштабируемость ASP.NET и других серверных приложений за счет уменьшения необходимости использования потоков. Если приложение использует выделенный поток на ответ и тысяча запросов приходит одновременно, тысяча потоков не потребуется. Асинхронные операции часто не нуждаются в пользовании потоком во время ожидания. Они пользуются существующим потоком завершения ввода-вывода короткое время в конце.
+Задержка операции доступа к файлу может быть очень низкой при текущих условиях, но может значительно увеличиться в будущем. Например, файл может быть перемещен на сервер через Интернет.
+Добавленные издержки при использовании функции Async являются малыми.
+Асинхронные задачи могут легко выполняться параллельно.
+Использование соответствующих классов
+В простых примерах в этом разделе демонстрируются File.WriteAllTextAsync и File.ReadAllTextAsync. Для точного управления операциями файлового ввода-вывода используйте FileStream класс , который имеет параметр, который вызывает асинхронные операции ввода-вывода на уровне операционной системы. С помощью этого параметра можно избежать блокирования пула потоков во многих случаях. Чтобы включить этот параметр, необходимо добавить в вызов конструктора аргумент useAsync=true или options=FileOptions.Asynchronous.
+
+Этот параметр нельзя использовать с классами StreamReader и StreamWriter, если вы открываете их напрямую (указав путь к файлу). При этом параметр можно использовать, если им предоставлен Stream, открытый классом FileStream. Асинхронные вызовы выполняются быстрее в приложениях пользовательского интерфейса, даже если поток в пуле потоков блокирован, поскольку поток пользовательского интерфейса не блокирован во время ожидания.
+
+Запись текста
+Следующие примеры записывают текст в файл. На каждой точке await происходит немедленный выход из метода. После завершения файлового ввода-вывода метод возобновляет работу с пункта, следующего за await. Модификатор async в определении методов требует наличия await в теле метода.
+
+Простой пример
+C#
+
+Копировать
+public async Task SimpleWriteAsync()
+{
+    string filePath = "simple.txt";
+    string text = $"Hello World";
+
+    await File.WriteAllTextAsync(filePath, text);
+}
+Пример конечного элемента управления
+C#
+
+Копировать
+public async Task ProcessWriteAsync()
+{
+    string filePath = "temp.txt";
+    string text = $"Hello World{Environment.NewLine}";
+
+    await WriteTextAsync(filePath, text);
+}
+
+async Task WriteTextAsync(string filePath, string text)
+{
+    byte[] encodedText = Encoding.Unicode.GetBytes(text);
+
+    using var sourceStream =
+        new FileStream(
+            filePath,
+            FileMode.Create, FileAccess.Write, FileShare.None,
+            bufferSize: 4096, useAsync: true);
+
+    await sourceStream.WriteAsync(encodedText, 0, encodedText.Length);
+}
+Первоначальная строка с оператором await sourceStream.WriteAsync(encodedText, 0, encodedText.Length); является сокращенной формой записи двух следующих операторов:
+
+C#
+
+Копировать
+Task theTask = sourceStream.WriteAsync(encodedText, 0, encodedText.Length);
+await theTask;
+Первый оператор возвращает задачу и вызывает запуск обработки файла. Вторая строка с await немедленно оставляет метод и возвращается в другую задачу. При окончании обработки файла выполнение возвращается в точку выполнения, которая следует за await.
+
+Чтение текста
+Следующий пример считывает текст из файла.
+
+Простой пример
+C#
+
+Копировать
+public async Task SimpleReadAsync()
+{
+    string filePath = "simple.txt";
+    string text = await File.ReadAllTextAsync(filePath);
+
+    Console.WriteLine(text);
+}
+Пример конечного элемента управления
+Текст добавляется в буфер обмена, а затем, в данном случае, помещается в StringBuilder. В отличие от предыдущего примера await выдаёт в результате значение. Метод ReadAsync возвращаетInt32<>Task , поэтому вычисление await создает Int32 значение numRead после завершения операции. Дополнительные сведения см. в разделе Асинхронные типы возвращаемых значений (C#).
+
+C#
+
+Копировать
+public async Task ProcessReadAsync()
+{
+    try
+    {
+        string filePath = "temp.txt";
+        if (File.Exists(filePath) != false)
+        {
+            string text = await ReadTextAsync(filePath);
+            Console.WriteLine(text);
+        }
+        else
+        {
+            Console.WriteLine($"file not found: {filePath}");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex.Message);
+    }
+}
+
+async Task<string> ReadTextAsync(string filePath)
+{
+    using var sourceStream =
+        new FileStream(
+            filePath,
+            FileMode.Open, FileAccess.Read, FileShare.Read,
+            bufferSize: 4096, useAsync: true);
+
+    var sb = new StringBuilder();
+
+    byte[] buffer = new byte[0x1000];
+    int numRead;
+    while ((numRead = await sourceStream.ReadAsync(buffer, 0, buffer.Length)) != 0)
+    {
+        string text = Encoding.Unicode.GetString(buffer, 0, numRead);
+        sb.Append(text);
+    }
+
+    return sb.ToString();
+}
+Параллельный асинхронный ввод-вывод
+В следующем примере показана параллельная обработка при записи 10 текстовых файлов.
+
+Простой пример
+C#
+
+Копировать
+public async Task SimpleParallelWriteAsync()
+{
+    string folder = Directory.CreateDirectory("tempfolder").Name;
+    IList<Task> writeTaskList = new List<Task>();
+
+    for (int index = 11; index <= 20; ++ index)
+    {
+        string fileName = $"file-{index:00}.txt";
+        string filePath = $"{folder}/{fileName}";
+        string text = $"In file {index}{Environment.NewLine}";
+
+        writeTaskList.Add(File.WriteAllTextAsync(filePath, text));
+    }
+
+    await Task.WhenAll(writeTaskList);
+}
+Пример конечного элемента управления
+Для каждого файла метод WriteAsync возвращает задачу, которая затем добавляется в список задач. Оператор await Task.WhenAll(tasks); существует и возобновляется в методе, как только завершается обработка файла для всех задач.
+
+Пример закрывает все экземпляры FileStream в блоке finally после завершения всех задач. Если бы вместо этого каждый FileStream был бы создан в операторе using, то FileStream можно было бы удалить до завершения задачи.
+
+Любое увеличение производительности зависит почти полностью от параллельной, а не асинхронной обработки. Преимущества асинхронности в том, что она не привязана к количеству потоков и не связана с потоком пользовательского интерфейса.
+
+C#
+
+Копировать
+public async Task ProcessMultipleWritesAsync()
+{
+    IList<FileStream> sourceStreams = new List<FileStream>();
+
+    try
+    {
+        string folder = Directory.CreateDirectory("tempfolder").Name;
+        IList<Task> writeTaskList = new List<Task>();
+
+        for (int index = 1; index <= 10; ++ index)
+        {
+            string fileName = $"file-{index:00}.txt";
+            string filePath = $"{folder}/{fileName}";
+
+            string text = $"In file {index}{Environment.NewLine}";
+            byte[] encodedText = Encoding.Unicode.GetBytes(text);
+
+            var sourceStream =
+                new FileStream(
+                    filePath,
+                    FileMode.Create, FileAccess.Write, FileShare.None,
+                    bufferSize: 4096, useAsync: true);
+
+            Task writeTask = sourceStream.WriteAsync(encodedText, 0, encodedText.Length);
+            sourceStreams.Add(sourceStream);
+
+            writeTaskList.Add(writeTask);
+        }
+
+        await Task.WhenAll(writeTaskList);
+    }
+    finally
+    {
+        foreach (FileStream sourceStream in sourceStreams)
+        {
+            sourceStream.Close();
+        }
+    }
+}
+При использовании методов WriteAsync и ReadAsync можно указать CancellationToken, который позволяет отменить операцию в середине потока. Подробные сведения см. в статье Отмена в управляемых потоках.
